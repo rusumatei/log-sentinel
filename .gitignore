@@ -1,0 +1,47 @@
+# --- Gradle / Build ---
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# --- IDEs (IntelliJ, VS Code, STS) ---
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+bin/
+
+# --- Operating System ---
+.DS_Store
+Thumbs.db
+
+# --- LogSentinel Internal & Planning (B-MAD) ---
+# We keep these private as they are engineering notes and internal tooling
+_bmad/
+_bmad-output/
+.bmad/
+config.user.toml
+config.properties.v4
+
+# --- Application Data & Logs ---
+data/
+*.mv.db
+*.trace.db
+*.log
+sample_server.log
+sim_report.txt
+threat_report*.txt
+
+# --- Binaries / Large Files ---
+# GeoLite2 database can be downloaded or kept local
+# GeoLite2-City.mmdb
+
+# --- Temporary ---
+*.tmp
+*.bak

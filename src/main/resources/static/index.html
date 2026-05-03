@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogSentinel V4 Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        header {
+            border-bottom: 1px solid #334155;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { margin: 0; color: #38bdf8; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            margin: 10px 0;
+        }
+        .stat-label {
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            letter-spacing: 0.1em;
+        }
+        .feed-container {
+            background-color: #1e293b;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            overflow: hidden;
+        }
+        .feed-header {
+            background-color: #334155;
+            padding: 12px 20px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+        #incident-feed {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+        .incident-item {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #0f172a;
+            border-left: 4px solid #ef4444;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .incident-meta {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 5px;
+        }
+        .incident-ip {
+            font-weight: bold;
+            color: #ef4444;
+            margin-right: 10px;
+        }
+        .incident-location {
+            color: #fbbf24;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            background-color: #10b981;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LogSentinel Dashboard <small style="font-size: 0.5em; color: #94a3b8;">V4</small></h1>
+            <div id="connection-status" class="status-badge">Connected</div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Lines Processed</div>
+                <div id="stat-lines" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Unique IPs Scanned</div>
+                <div id="stat-ips" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Threats Detected</div>
+                <div id="stat-threats" class="stat-value">0</div>
+            </div>
+        </div>
+
+        <div class="feed-container">
+            <div class="feed-header">
+                <span>Real-Time Incident Feed</span>
+                <span style="font-size: 0.8rem; font-weight: normal; color: #94a3b8;">Auto-refreshing via SSE</span>
+            </div>
+            <div id="incident-feed">
+                <!-- Incidents will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statLines = document.getElementById('stat-lines');
+        const statIps = document.getElementById('stat-ips');
+        const statThreats = document.getElementById('stat-threats');
+        const incidentFeed = document.getElementById('incident-feed');
+        const statusBadge = document.getElementById('connection-status');
+
+        // 1. Poll Stats API every 2 seconds
+        function fetchStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    statLines.innerText = data.totalLinesProcessed.toLocaleString();
+                    statIps.innerText = data.uniqueIpsScanned.toLocaleString();
+                    statThreats.innerText = data.threatCount.toLocaleString();
+                })
+                .catch(err => console.error('Failed to fetch stats:', err));
+        }
+
+        // 2. Fetch Historical Incidents on startup
+        function fetchHistory() {
+            fetch('/api/incidents/history')
+                .then(response => response.json())
+                .then(data => {
+                    // History comes in chrono order, feed is reverse-chrono visually
+                    // so we add them normally and the flex-direction: column-reverse handles it
+                    data.forEach(incident => addIncidentToFeed(incident));
+                })
+                .catch(err => console.error('Failed to fetch history:', err));
+        }
+
+        // 3. Consume SSE feed for live alerts
+        function subscribeToAlerts() {
+            const eventSource = new EventSource('/api/alerts');
+
+            eventSource.onmessage = function(event) {
+                const incident = JSON.parse(event.data);
+                addIncidentToFeed(incident);
+                // Also trigger an immediate stats refresh
+                fetchStats();
+            };
+
+            eventSource.onerror = function(err) {
+                console.error('SSE Error:', err);
+                statusBadge.innerText = 'Disconnected';
+                statusBadge.style.backgroundColor = '#ef4444';
+                eventSource.close();
+                // Retry after 5 seconds
+                setTimeout(subscribeToAlerts, 5000);
+            };
+
+            eventSource.onopen = function() {
+                statusBadge.innerText = 'Connected';
+                statusBadge.style.backgroundColor = '#10b981';
+            };
+        }
+
+        function addIncidentToFeed(incident) {
+            const item = document.createElement('div');
+            item.className = 'incident-item';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // 1. Create Meta Row (Timestamp | Count)
+            const meta = document.createElement('div');
+            meta.className = 'incident-meta';
+            const timeSpan = document.createElement('span');
+            timeSpan.textContent = timestamp;
+            const countSpan = document.createElement('span');
+            countSpan.textContent = ` | Failures: ${incident.hitCount}`;
+            meta.appendChild(timeSpan);
+            meta.appendChild(countSpan);
+            
+            // 2. Create Info Row (IP Location)
+            const info = document.createElement('div');
+            const ipSpan = document.createElement('span');
+            ipSpan.className = 'incident-ip';
+            ipSpan.textContent = incident.ipAddress;
+            const locSpan = document.createElement('span');
+            locSpan.className = 'incident-location';
+            locSpan.textContent = incident.location;
+            info.appendChild(ipSpan);
+            info.appendChild(locSpan);
+
+            item.appendChild(meta);
+            item.appendChild(info);
+            
+            incidentFeed.appendChild(item);
+            
+            // Limit to last 50 items
+            while (incidentFeed.childNodes.length > 50) {
+                incidentFeed.removeChild(incidentFeed.firstChild);
+            }
+        }
+
+        // Initial setup
+        fetchStats();
+        fetchHistory();
+        subscribeToAlerts();
+        setInterval(fetchStats, 2000);
+    </script>
+</body>
+</html>
