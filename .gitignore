@@ -40,9 +40,11 @@ sim_report.txt
 threat_report*.txt
 
 # --- Binaries / Large Files ---
-# GeoLite2 database can be downloaded or kept local
-# GeoLite2-City.mmdb
+# MaxMind databases should be downloaded, not committed to Git
+GeoLite2-City.mmdb
 
-# --- Temporary ---
+# --- Temporary / Backups ---
 *.tmp
 *.bak
+*.swp
+*~
