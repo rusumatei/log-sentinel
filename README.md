@@ -79,12 +79,6 @@ Access the live monitoring dashboard at `http://localhost:8080` once the applica
 
 ---
 
-## 📜 Version Control & Standards
-
-This project follows strict **Conventional Commits** and **Trunk-Based Development**. For detailed information on our engineering standards, see [GIT_WORKFLOW.md](./GIT_WORKFLOW.md).
-
----
-
 ## ⚖️ License
 
 Distributed under the MIT License. See `LICENSE` for more information.

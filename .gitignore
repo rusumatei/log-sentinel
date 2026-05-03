@@ -26,6 +26,7 @@ Thumbs.db
 _bmad/
 _bmad-output/
 .bmad/
+GIT_WORKFLOW.md
 config.user.toml
 config.properties.v4
 
